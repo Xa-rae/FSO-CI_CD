@@ -26,3 +26,73 @@ jobs:
       - run: npx playwright install --with-deps
 
       - run: npx playwright test
+
+  deploy:
+    if: ${{ success() && github.event_name == 'push' }}
+    needs: [build_and_test]
+    runs-on: ubuntu-latest
+    steps:
+      - run: curl ${{ secrets.RENDER_DEPLOY_HOOK}}
+
+  notify_success:
+    if: ${{ success() && github.event_name == 'push' }}
+    needs: [deploy]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send success message to Discord
+        uses: sarisia/actions-status-discord@v1
+        with:
+          webhook: ${{ secrets.DISCORD_WEBHOOK }}
+          nodetail: true
+          notimestamp: true
+          content: '✅ **Deployment successful!** A new version deployed to production.'
+          title: 'Deployment successful!'
+          description: |
+            **Commit:** ${{ github.sha }}
+            **Message**: ${{ github.event.head_commit.message || github.event.pull_request.title }}
+            **Author:** ${{ github.actor || github.event.pull_request.user.login }}
+
+  notify_failure:
+    if: ${{ failure() && github.event_name == 'push' }}
+    needs: [deploy]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send failure message to Discord
+        uses: sarisia/actions-status-discord@v1
+        with:
+          webhook: ${{ secrets.DISCORD_WEBHOOK }}
+          nodetail: true
+          notimestamp: true
+          content: '❌ **Deployment failed!**'
+          title: 'Deployment failed!'
+          description: |
+            **Repository:** ${{ github.repository }}
+            **Branch:** ${{ github.ref_name }}
+            **Commit:** ${{ github.sha }}
+            **Message:** ${{ github.event.head_commit.message || github.event.pull_request.title || 'N/A' }}
+            **Author:** ${{ github.event.head_commit.author.name || github.actor }}
+            **Workflow:** ${{ github.workflow }}
+            **Job:** ${{ github.job }}
+
+            [View Commit](https://github.com/${{ github.repository }}/commit/${{ github.sha }})
+            [View Workflow Run](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})
+
+  tag_release:
+    if: ${{ success() && github.event_name == 'push' }}
+    needs: [deploy]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.ref }}
+          fetch-depth: 0
+
+      - name: Versioning and tagging
+        uses: anothrNick/github-tag-action@4ed44965e0db8dab2b466a16da04aec3cc312fd8
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DEFAULT_BUMP: patch
+          DEFAULT_BRANCH: main
