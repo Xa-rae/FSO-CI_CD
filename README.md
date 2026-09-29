@@ -1,3 +1,9 @@
+# Project done for an exercise of Full Stack Open (FSO) part 11.
+
+Deployed to Render with a [link](https://fso-ci-cd-b9em.onrender.com/)
+
+Done as an additional exercise for [main project](https://github.com/Xa-rae/FullStackOpen-CI-CD)
+
 # create-app
 Simple boilerplate
 
